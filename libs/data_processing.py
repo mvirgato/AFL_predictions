@@ -6,7 +6,7 @@ from glob import glob
 import re
 import os
 
-years = np.arange(1970, 2025)
+years = np.arange(1970, 2026)
 rounds = np.arange(1, 29)
 
 headers = {'User-Agent':'MV_tipping_predictions'}
@@ -35,6 +35,8 @@ def read_ranking(file):
 
     _df.insert(loc=0, column='round', value=_round * np.ones(len(_df), dtype= int))
 
+    _df = _df.dropna()
+
     return _df
 
 
@@ -44,6 +46,7 @@ def get_team_info():
     Returns a dictionary to translate team name to ID number for use 
     in neural nets
     '''
+
     if not isfile('team_data.csv'):
         team_data = requests.get('https://api.squiggle.com.au/?q=teams;format=csv', headers=headers)
 
@@ -61,9 +64,14 @@ def get_team_info():
 
 def get_seasonal_data():
 
+    try:
+        os.mkdir('Seasonal_Data')
+    except:
+        pass
+
     for year in years:
 
-        if isfile(f'Seasonal_Data/data_{year:d}.csv'):
+        if isfile(f'Seasonal_Data/data_{year:d}.csv') and year != 2025:
 
             # print('Data already downloaded.')
             
@@ -74,15 +82,22 @@ def get_seasonal_data():
         with open(f'Seasonal_Data/data_{year:d}.csv', 'w') as f:
             f.write(response.text)
 
-    rounds = np.arange(1, 29)
+        if year == 2025:
+            _df = pd.read_csv(f'Seasonal_Data/data_{year:d}.csv')
+            _df['round'] += 1
+
+            _df.to_csv(f'Seasonal_Data/data_{year:d}.csv', index=False)
+
 
 def get_standings():
 
     for year in years:
+
         try:
             os.mkdir(f'Standings/{year:d}/')
         except:
             pass
+
         for round_ in rounds:
 
             if isfile(f'Standings/{year:d}/round_{round_:d}.csv'):
@@ -135,10 +150,11 @@ def process_season_data(datafile):
 
     dataframe = pd.read_csv(datafile)
 
+    dataframe = dataframe.dropna(subset=['agoals'])
+
     dataframe = dataframe[['round', 'hteamid', 'ateamid', 'hscore', 
                            'ascore', 'hgoals', 'agoals', 'hbehinds', 
                            'abehinds', 'is_final', 'winnerteamid']].copy()
-
     # Fill NaN values in winnerteamid
     dataframe['winnerteamid'] = dataframe['winnerteamid'].fillna(0)
 
@@ -184,13 +200,14 @@ def process_season_data(datafile):
 def process_data():
 
     data_files = glob('Seasonal_Data/data_*.csv')
+    data_files = sorted(data_files)
     full_data = pd.concat(process_season_data(file) for file in data_files)
     return full_data
 
 
 def current_round_data(_round):
 
-    current_round = requests.get('https://api.squiggle.com.au/?q=games;year=2025;round={_round:d}};format=csv', headers=headers)
+    current_round = requests.get(f'https://api.squiggle.com.au/?q=games;year=2025;round={_round:d};format=csv', headers=headers)
 
     with open('current_round.csv', 'w') as f:
         f.write(current_round.text)
