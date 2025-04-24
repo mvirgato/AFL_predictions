@@ -2,6 +2,7 @@ import pandas as pd
 from libs.neural_nets import DenseNN
 from torch import load, tensor
 from libs.data_processing import get_team_info, process_data, current_round_data, get_seasonal_data
+import os
 
 
 if __name__ == '__main__':
@@ -48,3 +49,5 @@ if __name__ == '__main__':
     for row in schedule.iterrows():
         row = row[1]
         print(predict(row['ateam'], row['hteam'], row['is_final']))
+
+    # os.remove('current_round.csv')
